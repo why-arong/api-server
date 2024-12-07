@@ -14,7 +14,7 @@
 1. Clone the repository
    ```zsh
     git clone https://github.com/why-arong/api-server.git
-    cd rust-crud-api-server
+    cd api-server
     ```
 2. Configure environment variables
     ```bash
