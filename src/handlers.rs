@@ -35,8 +35,8 @@ pub async fn create_user(pool: web::Data<PgPool>, item: web::Json<NewUser>) -> i
         now,
         now
     )
-    .fetch_one(pool.get_ref())
-    .await;
+        .fetch_one(pool.get_ref())
+        .await;
 
     match result {
         Ok(user) => {
@@ -64,8 +64,8 @@ pub async fn get_all_users(pool: web::Data<PgPool>) -> impl Responder {
         FROM users
         "#
     )
-    .fetch_all(pool.get_ref())
-    .await;
+        .fetch_all(pool.get_ref())
+        .await;
 
     match result {
         Ok(users) => {
@@ -89,8 +89,8 @@ pub async fn get_user(pool: web::Data<PgPool>, user_id: web::Path<Uuid>) -> impl
         "#,
         user_id
     )
-    .fetch_optional(pool.get_ref())
-    .await;
+        .fetch_optional(pool.get_ref())
+        .await;
 
     match result {
         Ok(Some(user)) => HttpResponse::Ok().json(user),
@@ -129,8 +129,8 @@ pub async fn update_user(
         now,
         user_id
     )
-    .fetch_optional(pool.get_ref())
-    .await;
+        .fetch_optional(pool.get_ref())
+        .await;
 
     match result {
         Ok(Some(user)) => HttpResponse::Ok().json(User {
@@ -159,8 +159,8 @@ pub async fn delete_user(pool: web::Data<PgPool>, user_id: web::Path<Uuid>) -> i
         "#,
         user_id
     )
-    .execute(pool.get_ref())
-    .await;
+        .execute(pool.get_ref())
+        .await;
 
     match result {
         Ok(res) => {

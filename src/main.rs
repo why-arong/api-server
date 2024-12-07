@@ -1,6 +1,7 @@
 mod db;
 mod handlers;
 mod models;
+mod custom_error;
 
 use actix_web::{web, App, HttpServer};
 use db::establish_connection;
