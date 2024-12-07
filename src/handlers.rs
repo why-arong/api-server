@@ -1,8 +1,9 @@
+use crate::models::{NewUser, User};
 use actix_web::{web, HttpResponse, Responder};
+use bcrypt::{hash, DEFAULT_COST};
+use log::{error, info};
 use sqlx::PgPool;
 use uuid::Uuid;
-use crate::models::{User, NewUser};
-use bcrypt::{hash, DEFAULT_COST};
 
 pub async fn health_check() -> impl Responder {
     HttpResponse::Ok().body("OK")
@@ -11,16 +12,16 @@ pub async fn health_check() -> impl Responder {
 pub async fn create_user(pool: web::Data<PgPool>, item: web::Json<NewUser>) -> impl Responder {
     let new_user = item.into_inner();
 
-    // 비밀번호 해시 생성
-    let password_hash = hash(new_user.password, DEFAULT_COST).unwrap();
-
-    // UUID 생성
+    let password_hash = match hash(new_user.password, DEFAULT_COST) {
+        Ok(hash) => hash,
+        Err(e) => {
+            error!("Failed to hash password: {}", e);
+            return HttpResponse::InternalServerError().body("Failed to process password.");
+        }
+    };
     let user_id = Uuid::new_v4();
-
-    // 현재 시간
     let now = chrono::Utc::now().naive_utc();
 
-    // SQLx를 사용하여 사용자 삽입
     let result = sqlx::query!(
         r#"
         INSERT INTO users (id, name, email, password_hash, created_at, updated_at)
@@ -34,24 +35,28 @@ pub async fn create_user(pool: web::Data<PgPool>, item: web::Json<NewUser>) -> i
         now,
         now
     )
-        .fetch_one(pool.get_ref())
-        .await;
+    .fetch_one(pool.get_ref())
+    .await;
 
     match result {
-        Ok(user) => HttpResponse::Ok().json(User {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            password_hash: user.password_hash,
-            created_at: user.created_at,
-            updated_at: user.updated_at,
-        }),
-        Err(e) => HttpResponse::InternalServerError().body(format!("Error creating user: {}", e)),
+        Ok(user) => {
+            info!("User created successfully: {}", user.id);
+            HttpResponse::Ok().json(User {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                password_hash: user.password_hash,
+                created_at: user.created_at,
+                updated_at: user.updated_at,
+            })
+        }
+        Err(e) => {
+            error!("Database error while creating user: {}", e);
+            HttpResponse::InternalServerError().body(format!("Error creating user: {}", e))
+        },
     }
 }
 pub async fn get_all_users(pool: web::Data<PgPool>) -> impl Responder {
-    println!("Starting to fetch all users...");
-
     let result = sqlx::query_as!(
         User,
         r#"
@@ -59,18 +64,17 @@ pub async fn get_all_users(pool: web::Data<PgPool>) -> impl Responder {
         FROM users
         "#
     )
-        .fetch_all(pool.get_ref())
-        .await;
+    .fetch_all(pool.get_ref())
+    .await;
 
     match result {
         Ok(users) => {
-            println!("Successfully fetched users: {:#?}", users);
             HttpResponse::Ok().json(users)
-        },
+        }
         Err(e) => {
-            eprintln!("Error fetching users: {}", e);
+            error!("Error fetching users: {}", e);
             HttpResponse::InternalServerError().body(format!("Error fetching users: {}", e))
-        },
+        }
     }
 }
 pub async fn get_user(pool: web::Data<PgPool>, user_id: web::Path<Uuid>) -> impl Responder {
@@ -85,17 +89,25 @@ pub async fn get_user(pool: web::Data<PgPool>, user_id: web::Path<Uuid>) -> impl
         "#,
         user_id
     )
-        .fetch_optional(pool.get_ref())
-        .await;
+    .fetch_optional(pool.get_ref())
+    .await;
 
     match result {
         Ok(Some(user)) => HttpResponse::Ok().json(user),
-        Ok(None) => HttpResponse::NotFound().body("User not found"),
-        Err(e) => HttpResponse::InternalServerError().body(format!("Error fetching user: {}", e)),
+        Ok(None) => {
+            error!("User not found");
+            HttpResponse::NotFound().body("User not found") },
+        Err(e) => {
+            error!("Error fetching user: {}", e);
+            HttpResponse::InternalServerError().body(format!("Error fetching user: {}", e)) },
     }
 }
 
-pub async fn update_user(pool: web::Data<PgPool>, user_id: web::Path<Uuid>, item: web::Json<NewUser>) -> impl Responder {
+pub async fn update_user(
+    pool: web::Data<PgPool>,
+    user_id: web::Path<Uuid>,
+    item: web::Json<NewUser>,
+) -> impl Responder {
     let user_id = user_id.into_inner();
     let updated_user = item.into_inner();
 
@@ -117,8 +129,8 @@ pub async fn update_user(pool: web::Data<PgPool>, user_id: web::Path<Uuid>, item
         now,
         user_id
     )
-        .fetch_optional(pool.get_ref())
-        .await;
+    .fetch_optional(pool.get_ref())
+    .await;
 
     match result {
         Ok(Some(user)) => HttpResponse::Ok().json(User {
@@ -130,7 +142,10 @@ pub async fn update_user(pool: web::Data<PgPool>, user_id: web::Path<Uuid>, item
             updated_at: user.updated_at,
         }),
         Ok(None) => HttpResponse::NotFound().body("User not found"),
-        Err(e) => HttpResponse::InternalServerError().body(format!("Error updating user: {}", e)),
+        Err(e) => {
+            error!("Database error while updating user: {}", e);
+            HttpResponse::InternalServerError().body(format!("Error updating user: {}", e))
+        },
     }
 }
 
@@ -144,8 +159,8 @@ pub async fn delete_user(pool: web::Data<PgPool>, user_id: web::Path<Uuid>) -> i
         "#,
         user_id
     )
-        .execute(pool.get_ref())
-        .await;
+    .execute(pool.get_ref())
+    .await;
 
     match result {
         Ok(res) => {
@@ -154,7 +169,10 @@ pub async fn delete_user(pool: web::Data<PgPool>, user_id: web::Path<Uuid>) -> i
             } else {
                 HttpResponse::Ok().body("User deleted")
             }
+        }
+        Err(e) => {
+            error!("Database error while deleting user: {}", e);
+            HttpResponse::InternalServerError().body(format!("Error deleting user: {}", e))
         },
-        Err(e) => HttpResponse::InternalServerError().body(format!("Error deleting user: {}", e)),
     }
 }
