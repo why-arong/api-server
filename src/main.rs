@@ -1,11 +1,12 @@
 mod db;
-mod handlers;
-mod models;
+// mod handlers;
+// mod models;
+
 mod custom_error;
 
 use actix_web::{web, App, HttpServer};
 use db::establish_connection;
-use handlers::{health_check, create_user, get_user, update_user, delete_user, get_all_users};
+use api_server::handlers::{health_check, create_user, get_user, update_user, delete_user, get_all_users};
 use dotenv::dotenv;
 use std::env;
 use log::info;
