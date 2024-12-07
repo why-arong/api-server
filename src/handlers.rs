@@ -49,7 +49,30 @@ pub async fn create_user(pool: web::Data<PgPool>, item: web::Json<NewUser>) -> i
         Err(e) => HttpResponse::InternalServerError().body(format!("Error creating user: {}", e)),
     }
 }
+pub async fn get_all_users(pool: web::Data<PgPool>) -> impl Responder {
+    println!("Starting to fetch all users...");
 
+    let result = sqlx::query_as!(
+        User,
+        r#"
+        SELECT id, name, email, password_hash, created_at, updated_at
+        FROM users
+        "#
+    )
+        .fetch_all(pool.get_ref())
+        .await;
+
+    match result {
+        Ok(users) => {
+            println!("Successfully fetched users: {:#?}", users);
+            HttpResponse::Ok().json(users)
+        },
+        Err(e) => {
+            eprintln!("Error fetching users: {}", e);
+            HttpResponse::InternalServerError().body(format!("Error fetching users: {}", e))
+        },
+    }
+}
 pub async fn get_user(pool: web::Data<PgPool>, user_id: web::Path<Uuid>) -> impl Responder {
     let user_id = user_id.into_inner();
 

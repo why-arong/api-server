@@ -4,7 +4,7 @@ mod models;
 
 use actix_web::{web, App, HttpServer};
 use db::establish_connection;
-use handlers::{health_check, create_user, get_user, update_user, delete_user};
+use handlers::{health_check, create_user, get_user, update_user, delete_user, get_all_users};
 use dotenv::dotenv;
 use std::env;
 
@@ -30,6 +30,7 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/users") // /users 경로 하위의 엔드포인트 설정
                     .route("", web::post().to(create_user)) // POST /users
+                    .route("", web::get().to(get_all_users)) // GET /users
                     .route("/{id}", web::get().to(get_user)) // GET /users/{id}
                     .route("/{id}", web::put().to(update_user)) // PUT /users/{id}
                     .route("/{id}", web::delete().to(delete_user)), // DELETE /users/{id}
